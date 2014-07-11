@@ -1,0 +1,27 @@
+## ----------------------------------------------------------------------------
+## Function that computes the distance between two locations in Decimal Degrees
+## ----------------------------------------------------------------------------
+
+dec.deg.dist <- function(lat1, long1, lat2, long2){
+
+degrees.to.radians<-function(degrees=45,minutes=30)
+{
+if(!is.numeric(minutes)) stop("Please enter a numeric value for minutes!\n")
+if(!is.numeric(degrees)) stop("Please enter a numeric value for degrees!\n")
+decimal<-minutes/60
+c.num<-degrees+decimal
+radians<-c.num*pi/180
+radians
+}
+
+distance<-6371.1*((2*asin(sqrt((sin((degrees.to.radians(lat1)-degrees.to.radians(long1))/2)^2)+cos(degrees.to.radians(lat1))*cos(degrees.to.radians(long1))*(sin((degrees.to.radians(lat2)-degrees.to.radians(long2))/2)^2)))))
+
+## 6371.1 = measure of the Earth 
+return (distance)
+
+## http://www.cpearson.com/excel/LatLong.aspx
+## e.g dec.deg.dist(20.5111,0,0,0) = 2280.766
+
+}
+
+## ----------------------------------------------------------------------------

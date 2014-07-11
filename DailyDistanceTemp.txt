@@ -1,0 +1,128 @@
+## Mixed Effects Model for Daily Distance ~ Daily Temperature with ID as a Random Effect
+
+# ----------------------------------------------------------------------------------------
+# Housekeeping
+
+rm(list=ls()) # remove everything currently held in the R memory
+
+graphics.off() # close all open graphics windows 
+
+
+# ----------------------------------------------------------------------------------------
+
+library(lme4) # mixed effects models package 
+
+# ----------------------------------------------------------------------------------------
+
+setwd("C:/Users/kanead/Desktop/PhD/Weather Range/Data")
+
+# ----------------------------------------------------------------------------------------
+
+mydata<-read.csv("All_weather.csv", header = T, sep = ",")
+
+head(mydata)
+
+mydata <- mydata[c("id", "dist", "temp", "wind", "cloud", "rain")] 
+
+plot(mydata$temp, mydata$dist)
+abline(lm(mydata$dist~mydata$temp))
+
+hist(mydata$temp)
+hist(mydata$dist)
+
+hist(sqrt(mydata$dist))
+hist(log(mydata$dist))
+hist(log10(mydata$dist))
+
+qqnorm(mydata$temp)
+qqnorm(mydata$dist)
+
+qqnorm(sqrt(mydata$dist))
+qqline(sqrt(mydata$dist))
+
+## square root is approaching normality 
+
+sqrtdist<-sqrt(mydata$dist)
+
+# ----------------------------------------------------------------------------------------
+# set up a model with id as a random effect
+# ----------------------------------------------------------------------------------------
+
+m1 = lmer(sqrtdist ~ temp + sex + (1|id), data=mydata) 
+m1
+
+## set up a null by dropping the fixed effect of interest and replacing it with 1
+
+m2 = lmer(sqrtdist ~ 1 + sex + (1|id), data=mydata) 
+m2
+
+## compare the two models with an anova to get a p-value 
+
+anova(m2,m1) 
+
+# ----------------------------------------------------------------------------------------
+# REML=FALSE necessary to do this when you compare models using the likelihood ratio test
+# ----------------------------------------------------------------------------------------
+
+m3 = lmer(sqrtdist ~ temp + sex + (1|id), data=mydata, REML=FALSE) 
+m3
+
+m4 = lmer(sqrtdist ~ 1 + sex + (1|id), data=mydata, REML=FALSE) 
+m4
+
+anova(m4,m3) 
+
+# ----------------------------------------------------------------------------------------
+## We can subset the data to get rid of daily distances < 5km where the bird was not foraging
+# ----------------------------------------------------------------------------------------
+newdata <- subset(mydata, dist > 5)
+
+hist(newdata$dist)
+hist(newdata$temp) ## normal
+hist(newdata$rain) ## binary
+hist(newdata$cloud)
+hist(newdata$wind)
+hist(newdata$windvar)
+
+hist(sqrt(newdata$dist)) ## approaching normal
+hist(sqrt(newdata$cloud))
+hist(log(newdata$windvar)) ## approaching normal
+
+sqrtdist<-sqrt(newdata$dist)
+
+glm_model <- glm(sqrtdist ~ newdata$temp + newdata$rain + newdata$windvar + newdata$cloud + newdata$sex + newdata$month)
+summary(glm_model)
+
+lm_model <- glm(sqrtdist ~ newdata$temp + newdata$rain + newdata$windvar + newdata$cloud + newdata$sex + newdata$month)
+summary.lm(lm_model)
+
+step(lm_model)
+
+## summary statistics 
+layout(matrix(c(1,2,3,4),2,2)) # optional 4 graphs/page 
+plot(lm_model)
+
+glm_model1 <- glm(sqrtdist ~ newdata$temp + newdata$rain + newdata$windvar + newdata$cloud + newdata$sex)
+summary.lm(glm_model1)
+
+## ---------------------------------------------------------------------------------------------------##
+
+plot(newdata$temp, newdata$dist)
+abline(lm(newdata$dist~newdata$temp))
+
+hist(log(newdata$dist))
+hist(sqrt(newdata$dist))
+
+hist(log(newdata$dist))
+hist(sqrt(newdata$dist))
+
+logdist_new <- log(newdata$dist)
+sqrtdist_new <- sqrt(newdata$dist)
+
+plot(newdata$temp, logdist_new)
+newmodel <- lm(logdist_new ~ newdata$temp + newdata$id)
+summary(newmodel)
+
+## can also subset it by individual as follows 
+
+newdata <- subset(mydata, dist > 10 & id == "Rabies")

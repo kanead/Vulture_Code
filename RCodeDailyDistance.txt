@@ -1,0 +1,165 @@
+##--------------------------------------------------------------------------------------
+## Code For Extracting the Distance Between Coordinate Points in Decimal Degrees by Date
+##--------------------------------------------------------------------------------------
+
+rm(list=ls())
+
+
+library(fossil) 
+library(R.utils)
+library(plyr)
+library(RNCEP)
+setwd("C:/Users/kanead/Desktop/PhD/Weather Range/Data")
+dir()
+mydata<-read.csv("B500_Virtryx_Cleaned_LatLong.csv", header = T, sep = ",") ## KatieX007_Cleaned_LatLong was the example
+
+## data should have headers in order: long, lat, date
+
+mydata <- mydata[c("long", "lat", "date", "datetime")]
+
+head(mydata)
+
+attach(mydata)
+
+## make the date column into class date to preserve order while running functions
+
+mydata$date<-as.Date(mydata$date, format = "%d-%m-%Y")
+
+##--------------------------------------------------------------------------------------
+
+## Split the Data by date
+
+X <- split(mydata, mydata$date)
+
+## sortX <- mydata[order(date), ]
+
+# then turn the resulting list into a dataframe
+
+Y <- lapply(seq_along(X), function(x) as.data.frame(X[[x]])[, 1:4])
+
+## measures the distance between all the points in each part of the Y dataframe
+## llply - Split list, apply function, and return results in a list.
+
+measuredist <- llply(Y, earth.dist)
+
+## converts all of these into a list of matrices 
+measuredistmatrix <- llply(measuredist, as.matrix)
+
+## can access individual elements as follows 
+measuredistmatrix[[1]]
+
+## function to extract subdiagonal elements of the matrix which gives distance covered per day
+
+diagmatrix <- function(x){
+diagmat <- diag(x [-1,-ncol(x)])
+dailydist <- sum(diagmat)
+return(dailydist)
+}
+
+diagmat <- llply(measuredistmatrix, diagmatrix) 
+
+## can remove specific elements of a list as follows e.g. with 114th element 
+
+diagmat[[114]] <- NULL
+
+## can unlist the elements of this resulting diagmat list and get a mean dist covered
+
+df<-unlist(diagmat)
+mean(df)
+
+## create a function that extracts the last element of the matrix of the first column to
+## give distance covered as the crow flies 
+
+crowdist <- function(x){
+ascrowflies <- tail(x[,1], n = 1)
+return(ascrowflies)
+}
+
+crowdistday <- llply(measuredistmatrix, crowdist)
+
+##--------------------------------------------------------------------------------------
+
+# daytemp <- function(x) {
+# NCEP.interp(variable="air.sig995", 
+# level="surface",lat=mydata$lat, lon=mydata$lon, dt=mydata$datetime, 
+# reanalysis2=TRUE, keep.unpacking.info=TRUE)
+# return(temp)
+# }
+
+## date needs to be of the form yyyy-mm-dd hh:mm:ss
+
+## Temperature Data Extraction
+#tempdata <- NCEP.interp(variable="air.sig995",level="surface",lat=mydata$lat, lon=mydata$lon, 
+#dt=mydata$datetime, reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+## DONE SO FAR: B536, B500, B604, B519
+## 1000 millibars of pressure occurs at approx 100 meters
+
+## Uwind Data Extraction
+uwind <- NCEP.interp(variable="uwnd",level="surface",lat=mydata$lat, lon=mydata$lon, 
+dt=mydata$datetime, reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+## Vwind Data Extraction
+vwind <- NCEP.interp(variable="vwnd",level="surface",lat=mydata$lat, lon=mydata$lon, 
+dt=mydata$datetime, reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+## Extract the column with the weather data in this case the 5th column
+
+Z <- lapply(seq_along(X), function(x) as.data.frame(X[[x]])[5])
+
+## Run the rapply function to get mean temp by date
+
+avgtemp <- rapply(Z , mean)
+
+as.numeric(avgtemp)
+
+write.csv(num_avgtemp, file = "temp.csv")
+
+cbind(num_avgtemp,  num_daydist)
+
+##----------------------------------------------------------------
+## Calculating Wind Speed 
+##----------------------------------------------------------------
+# test against http://www.cactus2000.de/uk/unit/masswin.shtml
+
+u<-(-3.954315)
+v<-(1.985299)
+
+## function for calculating wind direction from u and v components 
+windDir <- function(u, v) {
+  (180 / pi) * atan(u/v) + ifelse(v>0,180,ifelse(u>0,360,0))
+}
+
+## formula for calculating wind speed from u and v components 
+
+sqrt( (u)^2 + (v)^2) 
+
+## function for calculating wind speed from u and v components 
+
+windSpeed <- function(u, v) {
+sqrt( (u)^2 + (v)^2) 
+}
+
+windSpeed (-3.954315, 1.985299)
+
+
+
+##----------------------------------------------------------------------
+## Measuring Cloud Cover
+##----------------------------------------------------------------------
+
+cloud <- NCEP.interp(variable="tcdc.eatm",level="gaussian",lat=mydata$lat, lon=mydata$lon, 
+dt=mydata$datetime, reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+write.csv(cloud, file = "cloud.csv")
+
+##----------------------------------------------------------------------
+## Measuring Rain
+##----------------------------------------------------------------------
+
+rain <- NCEP.interp(variable="prate.sfc",level="gaussian",lat=mydata$lat, lon=mydata$lon, 
+dt=mydata$datetime, reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+write.csv(rain, file = "rain.csv")
+
+

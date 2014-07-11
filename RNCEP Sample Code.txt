@@ -1,0 +1,248 @@
+## RNCEP Sample Code 
+
+rm(list=ls()) # remove everything currently held in the R memory
+
+graphics.off() # close all open graphics windows 
+
+##---------------------------------------------------------------------------------------------------------------------------------------------------##
+
+library(RNCEP)
+
+## load the gull data set that comes with this package
+data(gull)
+
+## Subset the gull tracking data
+ss <- subset(gull, format(gull$datetime, "%Y-%m-%d %H:%M:%S") >="2008-09-19 16:00:00" & format(gull$datetime,"%Y-%m-%d %H:%M:%S") <= "2008-09-19 19:30:00")
+
+## Collect data on wind and interpolate it to each point in the dataset
+## U-Wind Component [East/West] m/s
+uwind <- NCEP.interp(variable="uwnd", level=925,lat=ss$latitude, lon=ss$longitude, dt=ss$datetime,reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+## Data are available at 17 pressure levels from 1000 to 10mb. Other variables describe conditions at or near the surface
+
+## V-Wind Component [North/South]
+vwind <- NCEP.interp(variable="vwnd", level=925,lat=ss$latitude, lon=ss$longitude, dt=ss$datetime,reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+## Now calculate the tailwind component from the U and V
+tailwind <- (sqrt(uwind^2 + vwind^2)*cos(((atan2(uwind,vwind)*(180/pi))-225)*(pi/180)))
+
+## Visualise this 
+NCEP.vis.points(wx=tailwind, lats=ss$latitude, lons=ss$longitude,cols=rev(heat.colors(64)),title.args=list(main="Lesser black-backed gull"),image.plot.args=list(legend.args=list(text="Tailwind m/s",adj=0, padj=-2, cex=1.15)),map.args=list(xlim=c(-7,4), ylim=c(40,50)))
+
+## Collect data on temperature
+temp <- NCEP.interp(variable="air", level=925,lat=ss$latitude, lon=ss$longitude, dt=ss$datetime,reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+head(temp)
+
+## Visualise this
+NCEP.vis.points(wx=temp, lats=ss$latitude, lons=ss$longitude,cols=rev(heat.colors(64)),title.args=list(main="Lesser black-backed gull"),image.plot.args=list(legend.args=list(text="Temp K",adj=0, padj=-2, cex=1.15)),map.args=list(xlim=c(-7,4), ylim=c(40,50)))
+
+##---------------------------------------------------------------------------------------------------------------------------------------------------##
+
+
+## Plot a track in Google Earth 
+## This function creates a .kml ?le from a time series of point locations that can be viewed as a track in Google Earth.
+
+## Create a subset of the full dataset ##
+g <- gull[1:100,]
+
+## Create a .kml file from a portion of the GPS track ##
+NCEP.track2kml(latitude=g$latitude, longitude=g$longitude,
+datetime=as.character(g$datetime), altitude=g$altitude,
+col.variable=g$altitude, col.scheme="heat.colors",
+point.alpha=255, line.color="goldenrod", line.alpha=255,
+size.variable=NULL, point.names=NULL,
+data.variables=data.frame(g$altitude),
+output.filename="track", descriptive.filename=NULL)
+
+## the output is saved in your working directory and can be opened in Google Earth 
+
+##---------------------------------------------------------------------------------------------------------------------------------------------------##
+
+## Visualize Weather Data Interpolated to a Point on a Map
+
+## This function creates a map with points. The color of the points indicates the value of some variable
+## at that point. These values can e.g. be obtained by applying the function NCEP.interp.
+
+## First, visualize the entire track representing altitude with the point colors 
+## Note the specification of the title also, note the specification of the legend label
+## and adjustment of its placement
+
+NCEP.vis.points(wx=gull$altitude, lats=gull$latitude,
+lons=gull$longitude, cols=topo.colors(64),
+title.args=list(main="Lesser black-backed gull"),
+image.plot.args=list(legend.args=list(text="Altitude",
+adj=-1, cex=1.25)))
+
+## Take a subset of the data based on the datetime of the measurement
+
+ss <- subset(gull, format(gull$datetime, "%Y-%m-%d %H:%M:%S") >=
+"2008-09-19 16:00:00" & format(gull$datetime,
+"%Y-%m-%d %H:%M:%S") <= "2008-09-19 19:30:00")
+
+## Now collect cloud cover, temperature, and wind information for each point in the subset 
+
+cloud <- NCEP.interp(variable="tcdc.eatm", level="gaussian",
+lat=ss$latitude, lon=ss$longitude, dt=ss$datetime,
+reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+temp <- NCEP.interp(variable="air.sig995", 
+level="surface",lat=ss$latitude, lon=ss$longitude, dt=ss$datetime, 
+reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+uwind <- NCEP.interp(variable="uwnd", level=925,
+lat=ss$latitude, lon=ss$longitude, dt=ss$datetime,
+reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+vwind <- NCEP.interp(variable="vwnd", level=925,
+lat=ss$latitude, lon=ss$longitude, dt=ss$datetime,
+reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+## Now visualize the subset of the GPS track using color to indicate the cloud cover 
+## Note the adjustment to the color of the basemap and the setting of the map range 
+## And the explicit placement of the colorbar legend using the smallplot argument
+
+NCEP.vis.points(wx=cloud, lats=ss$latitude, lons=ss$longitude,
+cols=rev(heat.colors(64)),
+map.args=list(col="darkgreen",xlim=c(-7,4), ylim=c(40,50)),
+title.args=list(main="Lesser black-backed gull"),
+image.plot.args=list(legend.args=list(text="Cloud Cover %",
+adj=-.1, padj=-.5, cex=1),
+smallplot=c(.83,.86,.15,.85))
+
+## Now visualize the subset of the GPS track using color to indicate the temperature 
+## Note the adjustment of point size
+
+NCEP.vis.points(wx=temp, lats=ss$latitude, lons=ss$longitude,
+cols=rev(heat.colors(64)),
+points.args=list(cex=1.25),
+title.args=list(main="Lesser black-backed gull"),
+image.plot.args=list(legend.args=list(text="Kelvin",
+adj=-.4, padj=-.5, cex=1.15)),
+map.args=list(xlim=c(-7,4), ylim=c(40,50)))
+
+## Now calculate the tailwind component from the U and V
+## wind components assuming that the bird’s preferred
+## direction is 225 degrees
+
+tailwind <- (sqrt(uwind^2 + vwind^2)*cos(((atan2(uwind,vwind)*
+(180/pi))-225)*(pi/180)))
+
+## Now visualize the subset of the GPS track using color
+## to indicate the tailwind speed ##
+## Note the adjustment of grid and axis properties
+
+NCEP.vis.points(wx=tailwind, lats=ss$latitude, lons=ss$longitude,
+cols=rev(heat.colors(64)),
+axis.args=list(las=2), grid.args=list(lty=1),
+title.args=list(main="Lesser black-backed gull"),
+image.plot.args=list(legend.args=list(text="Tailwind m/s",
+adj=0, padj=-2, cex=1.15)),
+map.args=list(xlim=c(-7,4), ylim=c(40,50)))
+
+##---------------------------------------------------------------------------------------------------------------------------------------------------##
+## In the first example, we use the internal R function ’mean’ to calculate average temperatures per
+## month and year
+
+## First gather temperature data from a spatial extent
+## for January and February from 2000-2001.
+wx.extent <- NCEP.gather(variable="air", level=850,
+months.minmax=c(1,2), years.minmax=c(2000,2001),
+lat.southnorth=c(50, 55), lon.westeast=c(0, 5),
+reanalysis2=FALSE, return.units=TRUE)
+## Now calculate the average temperature per month and year ##
+wx.ag <- NCEP.aggregate(wx.data=wx.extent, YEARS=TRUE, MONTHS=TRUE,
+DAYS=FALSE, HOURS=FALSE, fxn="mean")
+## Notice that aggregated time components have been replaced
+## with "XX" or "XXXX" ##
+dimnames(wx.ag)[[3]][1]
+
+##---------------------------------------------------------------------------------------------------------------------------------------------------##
+library(RNCEP)
+
+setwd("C:/Users/kanead/Desktop/PhD/Spatial Data/HighResData/Cleaned/LatLong")
+
+mydata<-read.csv("KateX007_Cleaned_LatLongSubset.csv", header = T, sep = ",") ## KatieX007_Cleaned_LatLong was the example
+
+## data should have headers in order: long, lat, date
+
+head(mydata)
+
+attach(mydata)
+
+class(mydata$datetime)
+
+datetime2<-as.POSIXlt(mydata$datetime)
+
+class(datetime2)
+
+ss <- subset(mydata, format(datetime2, "%Y-%m-%d %H:%M:%S") >="2013-04-04 04:55:00" & format(datetime2,"%Y-%m-%d %H:%M:%S") <= "2013-04-06 06:08:00")
+
+temp <- NCEP.interp(variable="air.sig995", 
+level="surface",lat=ss$lat, lon=ss$long, dt=ss$datetime, 
+reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+cloud <- NCEP.interp(variable="tcdc.eatm", level="gaussian",
+lat=ss$lat, lon=ss$long, dt=ss$datetime,
+reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+NCEP.vis.points(wx=cloud, lats=ss$lat, lons=ss$long,
+cols=rev(heat.colors(64)),
+map.args=list(col="darkgreen",xlim=c(26,27), ylim=c(-30.5,-32)),
+title.args=list(main="Cape Vulture"),
+image.plot.args=list(legend.args=list(text="Cloud Cover %",
+adj=-.1, padj=-.5, cex=1),
+smallplot=c(.83,.86,.15,.85)))
+
+NCEP.vis.points(wx=temp, lats=ss$lat, lons=ss$long,
+cols=rev(heat.colors(64)),
+points.args=list(cex=1.25),
+title.args=list(main="Cape Vulture"),
+image.plot.args=list(legend.args=list(text="Kelvin",
+adj=-.4, padj=-.5, cex=1.15)),
+map.args=list(xlim=c(25.5,27), ylim=c(-30.5,-32)))
+
+
+NCEP.track2kml(latitude=ss$lat, longitude=ss$long,
+datetime=as.character(ss$datetime), point.alpha=255, line.color="goldenrod", line.alpha=255,
+size.variable=NULL, point.names=NULL,
+data.variables=data.frame(ss$datetime),
+output.filename="track", descriptive.filename=NULL)
+
+
+##---------------------------------------------------------------------------------------------------------------------------------------------------##
+## Split the Data by date
+
+X <- split(mydata, mydata$date)
+
+# then turn the resulting list into a dataframe
+
+Y <- lapply(seq_along(X), function(x) as.data.frame(X[[x]]))
+
+## measures the distance between all the points in each part of the Y dataframe
+## llply - Split list, apply function, and return results in a list.
+
+measuredist <- llply(Y, earth.dist)
+
+datetime2<-as.POSIXlt(X$datetime)
+
+
+ss <- mydata, format(datetime2, "%Y-%m-%d %H:%M:%S")
+
+temp <- NCEP.interp(variable="air.sig995", 
+level="surface",lat=ss$lat, lon=Z$long, dt=Z$datetime, 
+reanalysis2=TRUE, keep.unpacking.info=TRUE)
+
+
+daytemp <- function(x) {
+NCEP.interp(variable="air.sig995", 
+level="surface",lat=Y$lat, lon=Y$long, dt=datetime, 
+reanalysis2=TRUE, keep.unpacking.info=TRUE)
+return(temp)
+}
+
+
+
+daytemp(Y)
+
+llply(Y, daytemp)
